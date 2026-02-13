@@ -13,6 +13,7 @@ function App() {
   const previewRef = useRef<HTMLDivElement>(null)
   const scrollRatioRef = useRef(0)
   const cursorPosRef = useRef<{ start: number; end: number } | null>(null)
+  const skipBlurRef = useRef(false)
 
   useEffect(() => {
     if (isEditingTitle && titleInputRef.current) {
@@ -44,6 +45,7 @@ function App() {
   }, [isPreview])
 
   const handleTogglePreview = () => {
+    // Capture current scroll ratio and cursor position before switching
     if (!isPreview && editorRef.current) {
       const { scrollTop, scrollHeight, clientHeight, selectionStart, selectionEnd } = editorRef.current
       const maxScroll = scrollHeight - clientHeight
@@ -56,26 +58,6 @@ function App() {
     }
     setIsPreview(!isPreview)
   }
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const tagName = document.activeElement?.tagName.toLowerCase()
-      const isInputActive = tagName === 'input' || tagName === 'textarea'
-
-      if (!isPreview && e.key.toLowerCase() === 'p' && !isInputActive) {
-        e.preventDefault()
-        handleTogglePreview()
-      }
-      
-      if (isPreview && e.key === 'Escape') {
-        e.preventDefault()
-        handleTogglePreview()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isPreview])
 
   const handleClear = () => {
     if (text.length > 0) {
@@ -109,6 +91,7 @@ function App() {
               />
             ) : (
               <div 
+                onMouseDown={() => skipBlurRef.current = true}
                 onClick={() => !isPreview && setIsEditingTitle(true)}
                 className={`text-xs font-medium text-gray-300 tracking-wider ${!isPreview ? 'cursor-pointer hover:text-gray-500' : 'cursor-default'} transition-colors`}
               >
@@ -119,6 +102,7 @@ function App() {
           
           <div className="flex items-center space-x-4 text-xs text-gray-400 font-mono">
             <button 
+              onMouseDown={(e) => e.preventDefault()}
               onClick={handleTogglePreview}
               className={`transition-colors cursor-pointer outline-none ${isPreview ? 'text-gray-900 hover:text-gray-700 font-bold' : 'text-gray-400 hover:text-gray-600'}`}
             >
@@ -126,6 +110,7 @@ function App() {
             </button>
             <span>{text.length} chars</span>
             <button 
+              onMouseDown={(e) => e.preventDefault()}
               onClick={handleClear}
               className={`transition-colors cursor-pointer outline-none focus:text-red-600 ${text.length > 0 ? 'hover:text-red-500 text-gray-400' : 'text-gray-200 cursor-default'}`}
               disabled={text.length === 0}
@@ -139,7 +124,12 @@ function App() {
         {isPreview ? (
           <div 
             ref={previewRef}
-            className="flex-1 w-full px-5 py-6 overflow-y-auto text-gray-700 leading-relaxed text-lg font-sans bg-transparent prose prose-slate max-w-none"
+            onClick={() => {
+              if (!window.getSelection()?.toString()) {
+                handleTogglePreview()
+              }
+            }}
+            className="flex-1 w-full px-5 py-6 overflow-y-auto text-gray-700 leading-relaxed text-lg font-sans bg-transparent prose prose-slate max-w-none cursor-pointer"
           >
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
           </div>
@@ -150,6 +140,13 @@ function App() {
             placeholder=""
             value={text}
             onChange={(e) => setText(e.target.value)}
+            onBlur={() => {
+              if (skipBlurRef.current) {
+                skipBlurRef.current = false
+                return
+              }
+              handleTogglePreview()
+            }}
             spellCheck={false}
             autoFocus
           />
