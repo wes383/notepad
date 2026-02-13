@@ -9,20 +9,22 @@ function App() {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [isPreview, setIsPreview] = useState(false)
   const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false)
+  const [showImageWidthOptions, setShowImageWidthOptions] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('theme') === 'dark' || 
+      return localStorage.getItem('theme') === 'dark' ||
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)
     }
     return false
   })
   const titleInputRef = useRef<HTMLInputElement>(null)
-  
+
   const editorRef = useRef<HTMLTextAreaElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const scrollRatioRef = useRef(0)
   const cursorPosRef = useRef<{ start: number; end: number } | null>(null)
-  
+
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark')
@@ -57,7 +59,7 @@ function App() {
       if (maxScroll > 0) {
         editorRef.current.scrollTop = scrollRatioRef.current * maxScroll
       }
-      
+
       if (cursorPosRef.current) {
         editorRef.current.setSelectionRange(cursorPosRef.current.start, cursorPosRef.current.end)
         cursorPosRef.current = null
@@ -79,6 +81,7 @@ function App() {
     }
     setIsPreview(!isPreview)
     setIsDownloadMenuOpen(false)
+    setShowImageWidthOptions(false)
   }
 
   const handleClear = () => {
@@ -105,14 +108,38 @@ function App() {
     a.click()
     URL.revokeObjectURL(url)
     setIsDownloadMenuOpen(false)
+    setShowImageWidthOptions(false)
   }
 
   const handleDownloadImage = async () => {
+    setShowImageWidthOptions(true)
+  }
+
+  const executeImageDownload = async (width: number) => {
     if (!previewRef.current) return
+    setIsDownloading(true)
     try {
       const clone = previewRef.current.cloneNode(true) as HTMLElement
-      
-      clone.style.width = '1200px'
+
+      clone.classList.remove('text-lg')
+      clone.classList.remove('prose')
+      clone.classList.add('prose')
+
+      if (width >= 1920) {
+        clone.classList.add('text-4xl')
+        clone.classList.add('prose-2xl')
+      } else if (width >= 1200) {
+        clone.classList.add('text-3xl')
+        clone.classList.add('prose-xl')
+      } else if (width >= 800) {
+        clone.classList.add('text-2xl')
+        clone.classList.add('prose-lg')
+      } else {
+        clone.classList.add('text-xl') // Slightly larger for mobile (600px)
+        clone.classList.add('prose-lg')
+      }
+
+      clone.style.width = `${width}px`
       clone.style.height = 'auto'
       clone.style.overflow = 'visible'
       clone.style.maxHeight = 'none'
@@ -120,20 +147,21 @@ function App() {
       clone.style.top = '0'
       clone.style.left = '0'
       clone.style.zIndex = '-9999'
-      
+
       document.body.appendChild(clone)
-      
+
       const height = clone.scrollHeight
-      
+
       const dataUrl = await toPng(clone, {
-        width: 1200,
+        width: width,
         height: height,
         backgroundColor: isDarkMode ? '#18181b' : '#ffffff',
-        pixelRatio: 2
+        pixelRatio: 1,
+        cacheBust: true,
       })
-      
+
       document.body.removeChild(clone)
-      
+
       const a = document.createElement('a')
       a.href = dataUrl
       a.download = `${title}.png`
@@ -143,12 +171,18 @@ function App() {
     } catch (e) {
       console.error('Download failed', e)
       alert('Failed to generate image. Please check console for details.')
+    } finally {
+      setIsDownloading(false)
+      setIsDownloadMenuOpen(false)
+      setShowImageWidthOptions(false)
     }
-    setIsDownloadMenuOpen(false)
   }
 
   return (
     <div className="h-screen w-screen bg-white dark:bg-[#18181b] flex flex-col font-sans selection:bg-indigo-100 dark:selection:bg-indigo-900 selection:text-indigo-900 dark:selection:text-indigo-100 overflow-hidden transition-colors duration-300">
+      {isDownloading && (
+        <div className="fixed inset-0 z-50 bg-black/20 dark:bg-white/10 cursor-wait" onClick={(e) => e.stopPropagation()}></div>
+      )}
       <div className="w-full h-full flex flex-col transition-all duration-300">
         {/* Header */}
         <div className="px-8 md:px-12 py-4 flex justify-between items-center sticky top-0 z-10 select-none bg-white dark:bg-[#18181b] border-b border-black dark:border-white/20 transition-colors duration-300">
@@ -166,7 +200,7 @@ function App() {
                 className="text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider bg-transparent outline-none w-48"
               />
             ) : (
-              <div 
+              <div
                 onClick={() => setIsEditingTitle(true)}
                 className="text-xs font-medium text-gray-300 dark:text-gray-600 tracking-wider cursor-pointer hover:text-gray-500 dark:hover:text-gray-400 transition-colors"
               >
@@ -174,50 +208,90 @@ function App() {
               </div>
             )}
           </div>
-          
+
           <div className="flex items-center space-x-4 text-xs text-gray-400 dark:text-gray-500 font-mono">
             {isPreview && (
               <div className="relative">
-                <button 
+                <button
                   onClick={() => setIsDownloadMenuOpen(!isDownloadMenuOpen)}
                   className={`transition-colors cursor-pointer outline-none ${isDownloadMenuOpen ? 'text-gray-900 dark:text-gray-100 font-bold' : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'}`}
                 >
                   DOWNLOAD
                 </button>
-                
+
                 {isDownloadMenuOpen && (
                   <div className="absolute top-1/2 right-full -translate-y-1/2 mr-4 flex items-center space-x-4 z-20">
-                    <button 
-                      onClick={handleDownloadMD}
-                      className="transition-colors cursor-pointer outline-none text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 whitespace-nowrap"
-                    >
-                      MARKDOWN
-                    </button>
-                    <button 
-                      onClick={handleDownloadImage}
-                      className="transition-colors cursor-pointer outline-none text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 whitespace-nowrap"
-                    >
-                      IMAGE
-                    </button>
+                    {!showImageWidthOptions ? (
+                      <>
+                        <button
+                          onClick={handleDownloadMD}
+                          className="transition-colors cursor-pointer outline-none text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 whitespace-nowrap"
+                        >
+                          MARKDOWN
+                        </button>
+                        <button
+                          onClick={handleDownloadImage}
+                          className="transition-colors cursor-pointer outline-none text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 whitespace-nowrap"
+                        >
+                          IMAGE
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-gray-300 dark:text-gray-600 font-bold text-xs select-none">
+                          WIDTH
+                        </span>
+                        <button
+                          onClick={() => executeImageDownload(600)}
+                          className="transition-colors cursor-pointer outline-none text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 whitespace-nowrap"
+                        >
+                          600px
+                        </button>
+                        <button
+                          onClick={() => executeImageDownload(800)}
+                          className="transition-colors cursor-pointer outline-none text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 whitespace-nowrap"
+                        >
+                          800px
+                        </button>
+                        <button
+                          onClick={() => executeImageDownload(1200)}
+                          className="transition-colors cursor-pointer outline-none text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 whitespace-nowrap"
+                        >
+                          1200px
+                        </button>
+                        <button
+                          onClick={() => executeImageDownload(1920)}
+                          className="transition-colors cursor-pointer outline-none text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 whitespace-nowrap"
+                        >
+                          1920px
+                        </button>
+                        <button
+                          onClick={() => setShowImageWidthOptions(false)}
+                          className="transition-colors cursor-pointer outline-none text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 whitespace-nowrap text-[10px]"
+                        >
+                          ✕
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
             )}
-            <button 
+            <button
               onMouseDown={(e) => e.preventDefault()}
               onClick={handleTogglePreview}
               className={`transition-colors cursor-pointer outline-none ${isPreview ? 'text-gray-900 dark:text-gray-100 hover:text-gray-700 dark:hover:text-gray-300 font-bold' : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'}`}
             >
               MARKDOWN
             </button>
-            <button 
+            <button
               onClick={toggleTheme}
               className="transition-colors cursor-pointer outline-none text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
             >
               {isDarkMode ? 'LIGHT' : 'DARK'}
             </button>
             <span>{text.length} chars</span>
-            <button 
+            <button
               onMouseDown={(e) => e.preventDefault()}
               onClick={handleClear}
               className={`transition-colors cursor-pointer outline-none focus:text-red-600 dark:focus:text-red-400 ${text.length > 0 ? 'hover:text-red-500 dark:hover:text-red-400 text-gray-400 dark:text-gray-500' : 'text-gray-200 dark:text-gray-700 cursor-default'}`}
@@ -227,10 +301,10 @@ function App() {
             </button>
           </div>
         </div>
-        
+
         {/* Editor / Preview Area */}
         {isPreview ? (
-          <div 
+          <div
             ref={previewRef}
             className="flex-1 w-full px-8 md:px-12 py-6 overflow-y-auto text-gray-700 dark:text-gray-300 leading-relaxed text-lg font-sans bg-transparent prose prose-slate dark:prose-invert max-w-none"
           >
