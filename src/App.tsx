@@ -57,6 +57,26 @@ function App() {
     setIsPreview(!isPreview)
   }
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tagName = document.activeElement?.tagName.toLowerCase()
+      const isInputActive = tagName === 'input' || tagName === 'textarea'
+
+      if (!isPreview && e.key.toLowerCase() === 'p' && !isInputActive) {
+        e.preventDefault()
+        handleTogglePreview()
+      }
+      
+      if (isPreview && e.key === 'Escape') {
+        e.preventDefault()
+        handleTogglePreview()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isPreview])
+
   const handleClear = () => {
     if (text.length > 0) {
       setText('')
