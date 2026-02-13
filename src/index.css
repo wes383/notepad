@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+@variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-sans: "Inter", "Noto Sans SC", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
@@ -12,6 +13,14 @@ html, body, #root {
   padding: 0;
   font-family: var(--font-sans);
   background-color: #ffffff;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  color-scheme: light;
+}
+
+.dark html, .dark body, .dark #root {
+  background-color: #18181b;
+  color: #e4e4e7;
+  color-scheme: dark;
 }
 
 .prose :where(code):not(:where([class~="not-prose"] *)):not(:where(pre *)) {
@@ -26,6 +35,11 @@ html, body, #root {
   color: #1f2937;
 }
 
+.dark .prose :where(code):not(:where([class~="not-prose"] *)):not(:where(pre *)) {
+  background-color: #27272a;
+  color: #e4e4e7;
+}
+
 .prose :where(code):not(:where([class~="not-prose"] *)):not(:where(pre *))::before,
 .prose :where(code):not(:where([class~="not-prose"] *)):not(:where(pre *))::after {
   content: "";
@@ -38,6 +52,12 @@ html, body, #root {
   border: 1px solid #e5e7eb;
   margin-top: 1.5em;
   margin-bottom: 1.5em;
+}
+
+.dark .prose :where(pre):not(:where([class~="not-prose"] *)) {
+  background-color: #27272a;
+  color: #e4e4e7;
+  border-color: #3f3f46;
 }
 
 .prose :where(pre code):not(:where([class~="not-prose"] *)) {
@@ -67,6 +87,10 @@ html, body, #root {
   vertical-align: middle;
 }
 
+.dark .prose input[type="checkbox"] {
+  border-color: #71717a;
+}
+
 .prose input[type="checkbox"]::before {
   content: "";
   width: 0.35em;
@@ -81,6 +105,10 @@ html, body, #root {
   transform-origin: center;
   translate: -50% -50%;
   transition: transform 0.1s ease-in-out, opacity 0.1s ease-in-out;
+}
+
+.dark .prose input[type="checkbox"]::before {
+  border-color: #e4e4e7;
 }
 
 .prose input[type="checkbox"]:checked::before {
@@ -100,6 +128,10 @@ html, body, #root {
   color: #4b5563;
 }
 
+.dark .prose blockquote {
+  color: #a1a1aa;
+}
+
 .prose blockquote::before {
   content: "";
   position: absolute;
@@ -109,4 +141,8 @@ html, body, #root {
   width: 0.25rem;
   background-color: #e5e7eb;
   border-radius: 9999px;
+}
+
+.dark .prose blockquote::before {
+  background-color: #3f3f46;
 }
