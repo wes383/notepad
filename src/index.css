@@ -1,0 +1,112 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: "Inter", "Noto Sans SC", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  background-color: #ffffff;
+}
+
+.prose :where(code):not(:where([class~="not-prose"] *)):not(:where(pre *)) {
+  background-color: #f3f4f6;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
+  border-radius: 0.25rem;
+  font-weight: 500;
+  font-size: 0.875em;
+  color: #1f2937;
+}
+
+.prose :where(code):not(:where([class~="not-prose"] *)):not(:where(pre *))::before,
+.prose :where(code):not(:where([class~="not-prose"] *)):not(:where(pre *))::after {
+  content: "";
+}
+
+.prose :where(pre):not(:where([class~="not-prose"] *)) {
+  background-color: #f3f4f6;
+  color: #1f2937;
+  border-radius: 0.375rem;
+  border: 1px solid #e5e7eb;
+  margin-top: 1.5em;
+  margin-bottom: 1.5em;
+}
+
+.prose :where(pre code):not(:where([class~="not-prose"] *)) {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  font-weight: inherit;
+  font-size: 0.875em;
+}
+
+.prose input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: transparent;
+  margin-top: 0;
+  margin-right: 0.5em;
+  width: 1em;
+  height: 1em;
+  border: 1px solid #1f2937;
+  border-radius: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  top: -0.05em;
+  vertical-align: middle;
+}
+
+.prose input[type="checkbox"]::before {
+  content: "";
+  width: 0.35em;
+  height: 0.6em;
+  border: solid #1f2937;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg) scale(0);
+  opacity: 0;
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform-origin: center;
+  translate: -50% -50%;
+  transition: transform 0.1s ease-in-out, opacity 0.1s ease-in-out;
+}
+
+.prose input[type="checkbox"]:checked::before {
+  transform: rotate(45deg) scale(1);
+  opacity: 1;
+}
+
+.prose input[type="checkbox"] {
+  cursor: default;
+}
+
+.prose blockquote {
+  border-left: none;
+  position: relative;
+  padding-left: 1.25em;
+  font-style: italic;
+  color: #4b5563;
+}
+
+.prose blockquote::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0.25rem;
+  background-color: #e5e7eb;
+  border-radius: 9999px;
+}
