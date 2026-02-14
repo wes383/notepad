@@ -95,3 +95,12 @@ html, body, #root {
 .dark .prose blockquote::before {
   background-color: #3f3f46;
 }
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
