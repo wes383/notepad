@@ -19,6 +19,11 @@ function App() {
   const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false)
   const [showImageWidthOptions, setShowImageWidthOptions] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  
+  // Mobile menu states
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [mobileMenuLevel, setMobileMenuLevel] = useState<'main' | 'download' | 'image-width'>('main')
+
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('theme') === 'dark' ||
@@ -30,7 +35,10 @@ function App() {
 
   const editorRef = useRef<HTMLTextAreaElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
+  const downloadRef = useRef<HTMLDivElement>(null)
   const splitContainerRef = useRef<HTMLDivElement>(null)
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
   const scrollRatioRef = useRef(0)
   const cursorPosRef = useRef<{ start: number; end: number } | null>(null)
 
@@ -46,8 +54,9 @@ function App() {
   }
 
   const startResizing = useCallback(() => {
+    if (isMobileMenuOpen) return
     setIsResizing(true)
-  }, [])
+  }, [isMobileMenuOpen])
 
   const stopResizing = useCallback(() => {
     setIsResizing(false)
@@ -56,6 +65,8 @@ function App() {
   const resize = useCallback((e: MouseEvent) => {
     if (isResizing && splitContainerRef.current) {
       const containerRect = splitContainerRef.current.getBoundingClientRect()
+      if (e.clientY < 60) return
+      
       const newRatio = (e.clientX - containerRect.left) / containerRect.width
       const clampedRatio = Math.min(Math.max(newRatio, 0.2), 0.8)
       setSplitRatio(clampedRatio)
@@ -143,6 +154,25 @@ function App() {
     document.title = title
   }, [title])
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        isMobileMenuOpen &&
+        mobileMenuRef.current &&
+        !mobileMenuRef.current.contains(event.target as Node) &&
+        mobileMenuButtonRef.current &&
+        !mobileMenuButtonRef.current.contains(event.target as Node)
+      ) {
+        setIsMobileMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isMobileMenuOpen])
+
   useLayoutEffect(() => {
     if (isPreview && previewRef.current) {
       const { scrollHeight, clientHeight } = previewRef.current
@@ -200,6 +230,7 @@ function App() {
     setIsSplitView(!isSplitView)
     setIsDownloadMenuOpen(false)
     setShowImageWidthOptions(false)
+    setIsMobileMenuOpen(false)
   }
 
   const markdownComponents = useMemo(() => ({
@@ -310,6 +341,49 @@ function App() {
     }
     setIsDownloadMenuOpen(false)
     setShowImageWidthOptions(false)
+    setIsMobileMenuOpen(false)
+  }
+
+  const handleMobileToggleSplitView = () => {
+    if (isSplitView) {
+      setIsSplitView(false)
+      setIsPreview(false)
+    } else {
+      if (editorRef.current) {
+        const { scrollTop, scrollHeight, clientHeight, selectionStart, selectionEnd } = editorRef.current
+        const maxScroll = scrollHeight - clientHeight
+        scrollRatioRef.current = maxScroll > 0 ? scrollTop / maxScroll : 0
+        cursorPosRef.current = { start: selectionStart, end: selectionEnd }
+      } else if (previewRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = previewRef.current
+        const maxScroll = scrollHeight - clientHeight
+        scrollRatioRef.current = maxScroll > 0 ? scrollTop / maxScroll : 0
+      }
+      setIsSplitView(true)
+      setIsPreview(true)
+    }
+    setIsMobileMenuOpen(false)
+  }
+
+  const handleMobileTogglePreview = () => {
+    if (isPreview && !isSplitView) {
+      if (previewRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = previewRef.current
+        const maxScroll = scrollHeight - clientHeight
+        scrollRatioRef.current = maxScroll > 0 ? scrollTop / maxScroll : 0
+      }
+      setIsPreview(false)
+    } else {
+      if (editorRef.current) {
+        const { scrollTop, scrollHeight, clientHeight, selectionStart, selectionEnd } = editorRef.current
+        const maxScroll = scrollHeight - clientHeight
+        scrollRatioRef.current = maxScroll > 0 ? scrollTop / maxScroll : 0
+        cursorPosRef.current = { start: selectionStart, end: selectionEnd }
+      }
+      setIsSplitView(false)
+      setIsPreview(true)
+    }
+    setIsMobileMenuOpen(false)
   }
 
   const handleClear = () => {
@@ -337,13 +411,16 @@ function App() {
     URL.revokeObjectURL(url)
     setIsDownloadMenuOpen(false)
     setShowImageWidthOptions(false)
+    setIsMobileMenuOpen(false)
   }
 
 
   const handleDownloadPDF = () => {
-    if (!previewRef.current) return
+    const sourceRef = previewRef.current || downloadRef.current
+    if (!sourceRef) return
     setIsDownloadMenuOpen(false)
     setShowImageWidthOptions(false)
+    setIsMobileMenuOpen(false)
 
     const iframe = document.createElement('iframe')
     iframe.style.position = 'fixed'
@@ -396,7 +473,7 @@ function App() {
 
     const contentWrapper = doc.createElement('div')
     contentWrapper.className = 'prose prose-slate max-w-none'
-    contentWrapper.innerHTML = previewRef.current.innerHTML
+    contentWrapper.innerHTML = sourceRef.innerHTML
     
     doc.body.appendChild(contentWrapper)
 
@@ -415,10 +492,11 @@ function App() {
   }
 
   const executeImageDownload = async (width: number) => {
-    if (!previewRef.current) return
+    const sourceRef = previewRef.current || downloadRef.current
+    if (!sourceRef) return
     setIsDownloading(true)
     try {
-      const clone = previewRef.current.cloneNode(true) as HTMLElement
+      const clone = sourceRef.cloneNode(true) as HTMLElement
 
       clone.classList.remove('text-lg')
       clone.classList.remove('prose')
@@ -477,6 +555,7 @@ function App() {
       setIsDownloading(false)
       setIsDownloadMenuOpen(false)
       setShowImageWidthOptions(false)
+      setIsMobileMenuOpen(false)
     }
   }
 
@@ -487,7 +566,7 @@ function App() {
       )}
       <div className="w-full h-full flex flex-col transition-all duration-300">
         {/* Header */}
-        <div className="px-8 md:px-12 py-4 flex justify-between items-center sticky top-0 z-10 select-none bg-white dark:bg-[#18181b] border-b border-black dark:border-white/20 transition-colors duration-300">
+        <div className="relative px-8 md:px-12 py-4 flex justify-between items-center sticky top-0 z-50 select-none bg-white dark:bg-[#18181b] border-b border-black dark:border-white/20 transition-colors duration-300">
           {/* Title */}
           <div className="flex-1 flex items-center">
             {isEditingTitle ? (
@@ -511,7 +590,7 @@ function App() {
             )}
           </div>
 
-          <div className="flex items-center space-x-4 text-xs text-gray-400 dark:text-gray-500 font-mono">
+          <div className="hidden md:flex items-center space-x-4 text-xs text-gray-400 dark:text-gray-500 font-mono">
             {(isPreview || isSplitView) && (
               <>
                 <div className="relative">
@@ -622,6 +701,135 @@ function App() {
               CLEAR
             </button>
           </div>
+
+          {/* Mobile Menu Button */}
+          <div className="md:hidden flex items-center z-50">
+             <span className="mr-4 text-xs text-gray-400 dark:text-gray-500 font-mono">{text.length} chars</span>
+             <button
+               ref={mobileMenuButtonRef}
+               onClick={() => {
+                 setIsMobileMenuOpen(!isMobileMenuOpen)
+                 setMobileMenuLevel('main')
+               }}
+               className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 outline-none"
+             >
+               {isMobileMenuOpen ? (
+                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                 </svg>
+               ) : (
+                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                 </svg>
+               )}
+             </button>
+          </div>
+
+        {/* Mobile Dropdown Menu */}
+        {isMobileMenuOpen && (
+          <div 
+            ref={mobileMenuRef}
+            className="md:hidden absolute top-full left-0 w-full bg-white dark:bg-[#18181b] border-b border-gray-200 dark:border-gray-800 z-40 shadow-lg transition-colors duration-300 max-h-[calc(100vh-60px)] overflow-y-auto"
+          >
+            {mobileMenuLevel === 'main' && (
+              <div className="flex flex-col p-4 space-y-4 text-sm font-mono text-gray-600 dark:text-gray-300">
+                <button 
+                  onClick={() => setMobileMenuLevel('download')}
+                  className="flex justify-between items-center w-full text-left py-2 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 rounded"
+                >
+                  <span>DOWNLOAD</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </button>
+                <button 
+                  onClick={handleMobileToggleSplitView}
+                  className={`text-left py-2 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 rounded ${isSplitView ? 'font-bold text-gray-900 dark:text-white' : ''}`}
+                >
+                  SPLIT VIEW
+                </button>
+                <button 
+                  onClick={handleMobileTogglePreview}
+                  className={`text-left py-2 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 rounded ${isPreview && !isSplitView ? 'font-bold text-gray-900 dark:text-white' : ''}`}
+                >
+                  {isPreview && !isSplitView ? 'EDIT' : 'PREVIEW'}
+                </button>
+                <button 
+                  onClick={toggleTheme}
+                  className="text-left py-2 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 rounded"
+                >
+                  {isDarkMode ? 'LIGHT MODE' : 'DARK MODE'}
+                </button>
+                <button 
+                  onClick={handleClear}
+                  disabled={text.length === 0}
+                  className={`text-left py-2 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 rounded ${text.length === 0 ? 'opacity-50 cursor-not-allowed' : 'text-red-500'}`}
+                >
+                  CLEAR
+                </button>
+              </div>
+            )}
+
+            {mobileMenuLevel === 'download' && (
+              <div className="flex flex-col p-4 space-y-4 text-sm font-mono text-gray-600 dark:text-gray-300">
+                <button 
+                  onClick={() => setMobileMenuLevel('main')}
+                  className="flex items-center w-full text-left py-2 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 rounded text-gray-400"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                  </svg>
+                  BACK
+                </button>
+                <button 
+                  onClick={handleDownloadMD}
+                  className="text-left py-2 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 rounded pl-8"
+                >
+                  MARKDOWN (.MD)
+                </button>
+                <button 
+                  onClick={handleDownloadPDF}
+                  className="text-left py-2 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 rounded pl-8"
+                >
+                  PDF (.PDF)
+                </button>
+                <button 
+                  onClick={() => setMobileMenuLevel('image-width')}
+                  className="flex justify-between items-center w-full text-left py-2 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 rounded pl-8"
+                >
+                  <span>IMAGE (.PNG)</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </button>
+              </div>
+            )}
+
+            {mobileMenuLevel === 'image-width' && (
+              <div className="flex flex-col p-4 space-y-4 text-sm font-mono text-gray-600 dark:text-gray-300">
+                <button 
+                  onClick={() => setMobileMenuLevel('download')}
+                  className="flex items-center w-full text-left py-2 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 rounded text-gray-400"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                  </svg>
+                  BACK
+                </button>
+                <div className="px-2 text-xs text-gray-400 uppercase tracking-wider">Select Width</div>
+                {[600, 800, 1200, 1920, 2560].map(width => (
+                  <button 
+                    key={width}
+                    onClick={() => executeImageDownload(width)}
+                    className="text-left py-2 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 rounded pl-8"
+                  >
+                    {width}px
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         </div>
         
         {/* Editor / Preview Area */}
@@ -672,6 +880,12 @@ function App() {
             autoFocus
           />
         )}
+      </div>
+
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', visibility: 'hidden' }}>
+        <div ref={downloadRef} className="prose prose-slate dark:prose-invert max-w-none px-12 py-12">
+          <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]} components={markdownComponents}>{text}</ReactMarkdown>
+        </div>
       </div>
     </div>
   )
